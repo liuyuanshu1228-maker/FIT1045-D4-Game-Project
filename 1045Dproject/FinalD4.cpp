@@ -700,7 +700,7 @@ void random_enemies(dynamic_array<enermy> &enemies, double player_x, double play
     // Reset the array by setting size to 0 (manual clear)
     enemies.size = 0;
 
-    int num_enemies = 3 + rand() % 3;                 // spawn 3 to 5 enemies each time
+    int num_enemies = 4 + rand() % 3;                 // spawn 4 to 6 enemies each time
     const double MIN_DISTANCE_FROM_PLAYER = 100.0;    // minimum distance from player
     const double MIN_DISTANCE_BETWEEN_ENEMIES = 80.0; // minimum distance between enemies
     const int MAX_ATTEMPTS = 50;                      // prevent infinite loops
@@ -1276,9 +1276,6 @@ int main()
     player game_player;
     game_player.player_startdir(200, 100); // player initial position
 
-    // create enemy
-    enermy game_enermy;
-    game_enermy.enermy_startdir(600, 500);
     // Bullets are managed by the global dynamic array declared at the top
 
     // Spawn enemies ONCE before the game loop
@@ -1308,16 +1305,14 @@ int main()
         game_player.player_attack();
         game_player.player_health();
 
-        // player movement
-        game_enermy.enermy_movement(game_player.get_x(), game_player.get_y());
-        for (int j = 0; j < enemies.size; j++) // update all random enemies
+        // update all enemies
+        for (int j = 0; j < enemies.size; j++)
         {
             enemies.data[j].enermy_movement(game_player.get_x(), game_player.get_y());
         }
 
         // Melee attack hit detection with cooldown
         static int attack_cooldown = 0;
-        static bool attack_hit_this_cycle = false;
 
         if (attack_cooldown > 0)
             attack_cooldown--;
@@ -1325,40 +1320,20 @@ int main()
         // Check if player just started attacking
         if (game_player.is_attacking() && attack_cooldown == 0)
         {
-            attack_hit_this_cycle = false; // Reset hit flag for new attack
             rectangle atk_range = game_player.get_attack_range();
 
-            // Check single enemy
-            if (game_enermy.be_active() && !attack_hit_this_cycle)
+            for (int j = 0; j < enemies.size; j++)
             {
-                rectangle enemy_rect = rectangle_from(game_enermy.get_x(), game_enermy.get_y(),
-                                                      game_enermy.get_width(), game_enermy.get_height());
-                if (rectangles_intersect(atk_range, enemy_rect))
+                if (enemies.data[j].be_active())
                 {
-                    game_enermy.take_damage(25);
-                    attack_cooldown = 30; // Prevent multiple hits (0.5 seconds at 60 FPS)
-                    attack_hit_this_cycle = true;
-                    write_line("Player hit enemy with sword!");
-                }
-            }
-
-            // Check all enemies in the array (only if haven't hit single enemy)
-            if (!attack_hit_this_cycle)
-            {
-                for (int j = 0; j < enemies.size; j++)
-                {
-                    if (enemies.data[j].be_active())
+                    rectangle enemy_rect = rectangle_from(enemies.data[j].get_x(), enemies.data[j].get_y(),
+                                                          enemies.data[j].get_width(), enemies.data[j].get_height());
+                    if (rectangles_intersect(atk_range, enemy_rect))
                     {
-                        rectangle enemy_rect = rectangle_from(enemies.data[j].get_x(), enemies.data[j].get_y(),
-                                                              enemies.data[j].get_width(), enemies.data[j].get_height());
-                        if (rectangles_intersect(atk_range, enemy_rect))
-                        {
-                            enemies.data[j].take_damage(25);
-                            attack_cooldown = 30; // Prevent multiple hits
-                            attack_hit_this_cycle = true;
-                            write_line("Player hit array enemy with sword!");
-                            break; // Only hit one enemy per attack
-                        }
+                        enemies.data[j].take_damage(25);
+                        attack_cooldown = 30; // Prevent multiple hits
+                        write_line("Player hit enemy with sword!");
+                        break; // Only hit one enemy per attack
                     }
                 }
             }
@@ -1390,21 +1365,13 @@ int main()
             if (!bullets.data[i].is_active())
                 continue;
 
-            if (game_enermy.be_active() && collision_check(bullets.data[i], game_enermy))
-            {
-                game_enermy.take_damage(BULLET_DAMAGE);
-                bullets.data[i].deactivate();
-                write_line("Bullet hit enemy!");
-                continue;
-            }
-
             for (int j = 0; j < enemies.size; j++)
             {
                 if (enemies.data[j].be_active() && collision_check(bullets.data[i], enemies.data[j]))
                 {
                     enemies.data[j].take_damage(BULLET_DAMAGE);
                     bullets.data[i].deactivate();
-                    write_line("Bullet hit array enemy!");
+                    write_line("Bullet hit enemy!");
                     break;
                 }
             }
@@ -1429,10 +1396,7 @@ int main()
             draw_rectangle(COLOR_RED, atk_range); // drwaw attack range
         }
 
-        // draw enemy
-        game_enermy.draw();
-
-        // draw all random enemies
+        // draw all enemies
         for (int j = 0; j < enemies.size; j++)
         {
             if (enemies.data[j].be_active())
@@ -1454,28 +1418,13 @@ int main()
 
         if (collision_cooldown == 0)
         {
-            bool hit_any_enemy = false;
-
-            // Check collision with single enemy first
-            if (game_enermy.be_active() && player_hit_enemy(game_player, game_enermy))
+            for (int j = 0; j < enemies.size; j++)
             {
-                game_player.lose_heart();
-                collision_cooldown = 60; // 1 second cooldown at 60 FPS
-                hit_any_enemy = true;
-            }
-
-            // Only check array enemies if we haven't hit the single enemy
-            if (!hit_any_enemy)
-            {
-                for (int j = 0; j < enemies.size; j++)
+                if (enemies.data[j].be_active() && player_hit_enemy(game_player, enemies.data[j]))
                 {
-                    if (enemies.data[j].be_active() && player_hit_enemy(game_player, enemies.data[j]))
-                    {
-                        game_player.lose_heart();
-                        collision_cooldown = 60; // 1 second cooldown at 60 FPS
-                        hit_any_enemy = true;
-                        break; // Exit loop after first collision
-                    }
+                    game_player.lose_heart();
+                    collision_cooldown = 60; // 1 second cooldown at 60 FPS
+                    break; // Exit loop after first collision
                 }
             }
         }
