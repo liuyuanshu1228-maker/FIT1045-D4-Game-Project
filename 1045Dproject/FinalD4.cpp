@@ -1364,6 +1364,61 @@ int main()
             }
         }
 
+        // Ranged attack: right-click fires a bullet toward the mouse cursor
+        static int fire_cooldown = 0;
+        if (fire_cooldown > 0)
+            fire_cooldown--;
+
+        if (mouse_clicked(RIGHT_BUTTON) && fire_cooldown == 0 && !game_player.is_dead())
+        {
+            bullet new_bullet;
+            new_bullet.bullet_fire(game_player.get_x(), game_player.get_y(), mouse_x(), mouse_y());
+            bullets.add(new_bullet);
+            fire_cooldown = 15; // ~4 shots per second at 60 FPS
+        }
+
+        // Move all active bullets
+        for (int i = 0; i < bullets.size; i++)
+        {
+            bullets.data[i].bullet_movement();
+        }
+
+        // Bullet-enemy collision
+        const int BULLET_DAMAGE = 15;
+        for (int i = 0; i < bullets.size; i++)
+        {
+            if (!bullets.data[i].is_active())
+                continue;
+
+            if (game_enermy.be_active() && collision_check(bullets.data[i], game_enermy))
+            {
+                game_enermy.take_damage(BULLET_DAMAGE);
+                bullets.data[i].deactivate();
+                write_line("Bullet hit enemy!");
+                continue;
+            }
+
+            for (int j = 0; j < enemies.size; j++)
+            {
+                if (enemies.data[j].be_active() && collision_check(bullets.data[i], enemies.data[j]))
+                {
+                    enemies.data[j].take_damage(BULLET_DAMAGE);
+                    bullets.data[i].deactivate();
+                    write_line("Bullet hit array enemy!");
+                    break;
+                }
+            }
+        }
+
+        // Clean up inactive bullets so the array doesn't grow forever
+        for (int i = bullets.size - 1; i >= 0; i--)
+        {
+            if (!bullets.data[i].is_active())
+            {
+                bullets.remove(i);
+            }
+        }
+
         // draw player
         game_player.draw();
 
@@ -1384,6 +1439,12 @@ int main()
             {
                 enemies.data[j].draw();
             }
+        }
+
+        // draw all active bullets
+        for (int i = 0; i < bullets.size; i++)
+        {
+            bullets.data[i].draw();
         }
 
         // Check player-enemy collision (heart-based system)
@@ -1447,6 +1508,7 @@ int main()
         }
         // Draw UI elements LAST so they appear on top
         draw_hearts(game_player.get_heart());
+        draw_text("SPACE: sword  |  Right-click: shoot", COLOR_WHITE, "Arial", 14, 10, 570);
 
         // check dead status
         if (game_player.is_dead())
