@@ -8,8 +8,10 @@ class Bullet : public Entity
 public:
     Bullet();
 
-    // Fires from (start_x, start_y) towards (target_x, target_y).
-    void fire(double start_x, double start_y, double target_x, double target_y);
+    // Fires from the center of a (start_width x start_height) shooter at
+    // (start_x, start_y) towards (target_x, target_y).
+    void fire(double start_x, double start_y, double start_width, double start_height,
+              double target_x, double target_y);
     void update();
     void draw() const override;
 
