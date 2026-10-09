@@ -3,7 +3,8 @@
 #include <string>
 
 Player::Player()
-    : Character(0, 0, 40, 40, 2.5, 25), _hearts(3), _attacking(false), _dying(false)
+    : Character(0, 0, 40, 40, 2.5), _attack(25), _hearts(3), _attacking(false), _dying(false),
+      _melee_hit_cooldown(0), _ranged_cooldown(0), _hit_cooldown(0)
 {
     _walk_anim.load("player_walk", "Resources/sprites/Soldier/Soldier_Walk.png", 100, 100, 8, 8);
     _attack_anim.load("player_attack", "Resources/sprites/Soldier/Soldier_Attack.png", 100, 100, 6, 6);
@@ -71,6 +72,16 @@ void Player::handle_input()
     }
 }
 
+void Player::update_cooldowns()
+{
+    if (_melee_hit_cooldown > 0)
+        _melee_hit_cooldown--;
+    if (_ranged_cooldown > 0)
+        _ranged_cooldown--;
+    if (_hit_cooldown > 0)
+        _hit_cooldown--;
+}
+
 void Player::update_health()
 {
     if (_hearts.is_depleted() && !_dying)
@@ -122,6 +133,16 @@ void Player::lose_heart()
 void Player::reset_hearts()
 {
     _hearts.reset();
+}
+
+bool Player::try_take_contact_damage()
+{
+    if (_hit_cooldown > 0)
+        return false;
+
+    lose_heart();
+    _hit_cooldown = HIT_COOLDOWN;
+    return true;
 }
 
 void Player::draw_hud() const

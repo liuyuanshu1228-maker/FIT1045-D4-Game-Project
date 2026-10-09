@@ -8,7 +8,7 @@
 
 Game::Game()
     : _background(nullptr), _bg_scale(1.0), _bg_offset_x(0.0), _bg_offset_y(0.0),
-      _bgm(nullptr), _melee_cooldown(0), _ranged_cooldown(0), _player_hit_cooldown(0)
+      _bgm(nullptr)
 {
     srand(static_cast<unsigned int>(time(nullptr)));
 
@@ -63,10 +63,7 @@ void Game::load_background()
 
 void Game::handle_melee_attack()
 {
-    if (_melee_cooldown > 0)
-        _melee_cooldown--;
-
-    if (!_player.is_attacking() || _melee_cooldown != 0)
+    if (!_player.can_register_melee_hit())
         return;
 
     rectangle atk_range = _player.get_melee_range();
@@ -79,7 +76,7 @@ void Game::handle_melee_attack()
         if (rectangles_intersect(atk_range, enemy->get_bounds()))
         {
             enemy->take_damage(_player.get_attack());
-            _melee_cooldown = 30; // prevent multiple hits per swing
+            _player.register_melee_hit();
             write_line("Player hit enemy with sword!");
             break; // only hit one enemy per swing
         }
@@ -88,16 +85,14 @@ void Game::handle_melee_attack()
 
 void Game::handle_ranged_attack()
 {
-    if (_ranged_cooldown > 0)
-        _ranged_cooldown--;
-
-    if (!mouse_clicked(RIGHT_BUTTON) || _ranged_cooldown != 0 || _player.is_dead())
+    if (!_player.can_fire() || !mouse_clicked(RIGHT_BUTTON) || _player.is_dead())
         return;
 
     Bullet bullet;
-    bullet.fire(_player.get_x(), _player.get_y(), mouse_x(), mouse_y());
+    bullet.fire(_player.get_x(), _player.get_y(), _player.get_width(), _player.get_height(),
+                mouse_x(), mouse_y());
     _bullets.push_back(bullet);
-    _ranged_cooldown = 15; // ~4 shots per second at 60 FPS
+    _player.register_shot();
 }
 
 void Game::update_bullets()
@@ -139,20 +134,13 @@ void Game::update_enemies()
 
 void Game::resolve_combat()
 {
-    // Player touching an enemy (melee contact damage)
-    if (_player_hit_cooldown > 0)
-        _player_hit_cooldown--;
-
-    if (_player_hit_cooldown == 0)
+    // Player touching an enemy (melee contact damage, gated by Player's own invulnerability window)
+    for (auto &enemy : _enemies)
     {
-        for (auto &enemy : _enemies)
+        if (enemy->is_active() && Collision::player_hits_enemy(_player, *enemy) &&
+            _player.try_take_contact_damage())
         {
-            if (enemy->is_active() && Collision::player_hits_enemy(_player, *enemy))
-            {
-                _player.lose_heart();
-                _player_hit_cooldown = 60; // 1 second cooldown at 60 FPS
-                break;
-            }
+            break;
         }
     }
 
@@ -240,6 +228,7 @@ void Game::run()
         process_events();
 
         _player.handle_input();
+        _player.update_cooldowns();
         _player.update_health();
 
         update_enemies();

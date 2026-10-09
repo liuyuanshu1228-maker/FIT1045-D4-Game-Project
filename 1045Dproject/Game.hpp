@@ -38,10 +38,6 @@ private:
     bitmap _background;
     double _bg_scale, _bg_offset_x, _bg_offset_y;
     music _bgm;
-
-    int _melee_cooldown;
-    int _ranged_cooldown;
-    int _player_hit_cooldown;
 };
 
 #endif
