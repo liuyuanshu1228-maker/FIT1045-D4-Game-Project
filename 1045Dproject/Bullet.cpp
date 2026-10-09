@@ -1,4 +1,5 @@
 #include "Bullet.hpp"
+#include "Screen.hpp"
 #include <cmath>
 
 Bullet::Bullet() : Entity(0, 0, WIDTH, HEIGHT), _dx(0), _dy(0)
@@ -37,7 +38,7 @@ void Bullet::update()
     _x += SPEED * _dx;
     _y += SPEED * _dy;
 
-    if (_y < 0 || _x < 0 || _x > 800 || _y > 600)
+    if (_y < 0 || _x < 0 || _x > Screen::WIDTH || _y > Screen::HEIGHT)
     {
         _active = false;
     }
