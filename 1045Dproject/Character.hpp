@@ -16,6 +16,11 @@ public:
     int get_attack() const { return _attack; }
 
 protected:
+    // Keeps the character's bounding box fully inside the window.
+    // Shared by Player and Enemy, which both move under their own logic
+    // but need the same "don't walk off screen" rule.
+    void clamp_to_screen();
+
     double _speed;
     int _attack;
 };
