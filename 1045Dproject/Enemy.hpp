@@ -3,6 +3,7 @@
 
 #include "Character.hpp"
 #include "SpriteAnimator.hpp"
+#include "Health.hpp"
 #include <vector>
 #include <memory>
 
@@ -19,24 +20,19 @@ public:
 
     bool is_alive() const override { return _active; }
     void take_damage(int damage);
-    int get_blood() const { return _blood; }
-    int get_max_blood() const { return _blood_max; }
+    int get_health() const { return _health.current(); }
+    int get_max_health() const { return _health.max(); }
 
-    bool is_attacking() const { return _attacking; }
-    // Returns true exactly once per swing that landed a hit.
+    // Returns true exactly once per swing that landed a hit on the player.
     bool consume_damage_flag();
-
-    double distance_to(double px, double py) const;
 
     // Spawns a wave of enemies at valid random positions away from the player and each other.
     static void spawn_wave(std::vector<std::unique_ptr<Enemy>> &enemies, double player_x, double player_y);
 
 private:
     bool update_wander_ai();
-    void clamp_to_screen();
 
-    int _blood_max;
-    int _blood;
+    Health _health;
     double _detect_radius;
 
     SpriteAnimator _walk_anim;

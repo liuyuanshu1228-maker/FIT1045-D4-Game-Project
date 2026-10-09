@@ -1,13 +1,11 @@
 #include "Enemy.hpp"
+#include "Screen.hpp"
 #include "splashkit.h"
 #include <cmath>
 #include <cstdlib>
-#include <string>
 
 namespace
 {
-    constexpr int SCREEN_WIDTH = 800;
-    constexpr int SCREEN_HEIGHT = 600;
     constexpr double MIN_DISTANCE_FROM_PLAYER = 100.0;
     constexpr double MIN_DISTANCE_BETWEEN_ENEMIES = 80.0;
     constexpr int MAX_SPAWN_ATTEMPTS = 50;
@@ -15,7 +13,7 @@ namespace
 
 Enemy::Enemy()
     : Character(0, 0, 50, 50, 1.0, 1),
-      _blood_max(100), _blood(_blood_max), _detect_radius(200.0),
+      _health(100), _detect_radius(200.0),
       _attacking(false),
       _wander_target_x(0), _wander_target_y(0), _wander_timer(0),
       _wander_cooldown(60 + rand() % 180),
@@ -53,7 +51,6 @@ void Enemy::update(double target_x, double target_y)
     {
         if (distance <= _melee_range && _melee_cooldown_timer == 0 && !_attacking)
         {
-            write_line("Enemy starting attack! Distance: " + std::to_string(distance));
             _attacking = true;
             _attack_anim.reset();
             _has_hit_this_swing = false;
@@ -67,12 +64,15 @@ void Enemy::update(double target_x, double target_y)
 
         if (_attacking)
         {
-            // Hit frame: deal damage once per swing, the first time it reaches frame 3
+            // Hit frame: deal damage once per swing, the first time it reaches frame 3,
+            // and only if the player hasn't stepped out of range since the swing started.
             if (_attack_anim.current_frame() == 3 && !_has_hit_this_swing)
             {
-                write_line("Enemy attack hit frame reached!");
                 _has_hit_this_swing = true;
-                _damage_pending = true;
+                if (distance <= _melee_range)
+                {
+                    _damage_pending = true;
+                }
             }
 
             if (_attack_anim.step_once_reset())
@@ -127,12 +127,12 @@ bool Enemy::update_wander_ai()
 
         if (_wander_target_x < 0)
             _wander_target_x = 0;
-        if (_wander_target_x > SCREEN_WIDTH - _width)
-            _wander_target_x = SCREEN_WIDTH - _width;
+        if (_wander_target_x > Screen::WIDTH - _width)
+            _wander_target_x = Screen::WIDTH - _width;
         if (_wander_target_y < 0)
             _wander_target_y = 0;
-        if (_wander_target_y > SCREEN_HEIGHT - _height)
-            _wander_target_y = SCREEN_HEIGHT - _height;
+        if (_wander_target_y > Screen::HEIGHT - _height)
+            _wander_target_y = Screen::HEIGHT - _height;
     }
 
     double wx = _wander_target_x - _x;
@@ -149,18 +149,6 @@ bool Enemy::update_wander_ai()
     return false;
 }
 
-void Enemy::clamp_to_screen()
-{
-    if (_x < 0)
-        _x = 0;
-    if (_x > SCREEN_WIDTH - _width)
-        _x = SCREEN_WIDTH - _width;
-    if (_y < 0)
-        _y = 0;
-    if (_y > SCREEN_HEIGHT - _height)
-        _y = SCREEN_HEIGHT - _height;
-}
-
 void Enemy::draw() const
 {
     if (!_active)
@@ -172,7 +160,7 @@ void Enemy::draw() const
 
         double bar_width = _width * 0.3;
         double bar_height = 4;
-        double ratio = static_cast<double>(_blood) / _blood_max;
+        double ratio = static_cast<double>(_health.current()) / _health.max();
         double bar_x = _x + (_width - bar_width) / 2;
         double bar_y = _y + 5;
         fill_rectangle(COLOR_RED, bar_x, bar_y, bar_width, bar_height);
@@ -191,7 +179,7 @@ void Enemy::draw() const
 
     double bar_width = _width * 0.3;
     double bar_height = 2;
-    double ratio = static_cast<double>(_blood) / _blood_max;
+    double ratio = static_cast<double>(_health.current()) / _health.max();
     double bar_x = _x + (_width - bar_width) / 2;
     double bar_y = _y - 8;
     fill_rectangle(COLOR_RED, bar_x, bar_y, bar_width, bar_height);
@@ -200,10 +188,9 @@ void Enemy::draw() const
 
 void Enemy::take_damage(int damage)
 {
-    _blood -= damage;
-    if (_blood <= 0)
+    _health.damage(damage);
+    if (_health.is_depleted())
     {
-        _blood = 0;
         deactivate();
     }
 }
@@ -216,13 +203,6 @@ bool Enemy::consume_damage_flag()
         return true;
     }
     return false;
-}
-
-double Enemy::distance_to(double px, double py) const
-{
-    double dx = px - _x;
-    double dy = py - _y;
-    return sqrt(dx * dx + dy * dy);
 }
 
 void Enemy::spawn_wave(std::vector<std::unique_ptr<Enemy>> &enemies, double player_x, double player_y)
