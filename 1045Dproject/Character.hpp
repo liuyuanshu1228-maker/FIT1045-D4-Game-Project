@@ -3,17 +3,17 @@
 
 #include "Entity.hpp"
 
-// Shared ground for any combatant: movement speed and attack strength.
-// Subclasses decide what "alive" means for them (hearts vs. a health pool).
+// Shared ground for any combatant: movement speed.
+// Subclasses decide what "alive" means for them (hearts vs. a health pool),
+// and own whatever attack stats actually apply to them.
 class Character : public Entity
 {
 public:
-    Character(double x, double y, int width, int height, double speed, int attack);
+    Character(double x, double y, int width, int height, double speed);
 
     virtual bool is_alive() const = 0;
 
     double get_speed() const { return _speed; }
-    int get_attack() const { return _attack; }
 
 protected:
     // Keeps the character's bounding box fully inside the window.
@@ -22,7 +22,6 @@ protected:
     void clamp_to_screen();
 
     double _speed;
-    int _attack;
 };
 
 #endif

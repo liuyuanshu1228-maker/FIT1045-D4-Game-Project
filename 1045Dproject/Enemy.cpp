@@ -12,7 +12,7 @@ namespace
 }
 
 Enemy::Enemy()
-    : Character(0, 0, 50, 50, 1.0, 1),
+    : Character(0, 0, 50, 50, 1.0),
       _health(100), _detect_radius(200.0),
       _attacking(false),
       _wander_target_x(0), _wander_target_y(0), _wander_timer(0),

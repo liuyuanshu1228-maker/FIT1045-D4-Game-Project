@@ -1,8 +1,8 @@
 #include "Character.hpp"
 #include "Screen.hpp"
 
-Character::Character(double x, double y, int width, int height, double speed, int attack)
-    : Entity(x, y, width, height), _speed(speed), _attack(attack)
+Character::Character(double x, double y, int width, int height, double speed)
+    : Entity(x, y, width, height), _speed(speed)
 {
 }
 
