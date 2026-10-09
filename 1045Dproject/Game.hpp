@@ -29,8 +29,6 @@ private:
     void render();
     void show_game_over();
 
-    static constexpr int WINDOW_WIDTH = 800;
-    static constexpr int WINDOW_HEIGHT = 600;
     static constexpr int BULLET_DAMAGE = 15;
 
     Player _player;

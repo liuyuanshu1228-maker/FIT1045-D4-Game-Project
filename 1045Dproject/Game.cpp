@@ -1,22 +1,10 @@
 #include "Game.hpp"
 #include "Collision.hpp"
+#include "Screen.hpp"
 #include <algorithm>
 #include <cstdlib>
 #include <ctime>
 #include <string>
-
-namespace
-{
-    void draw_hearts(int lives)
-    {
-        for (int i = 0; i < lives; i++)
-        {
-            fill_circle(COLOR_RED, 30 + i * 40, 30, 15);
-            fill_circle(COLOR_RED, 50 + i * 40, 30, 15);
-            fill_triangle(COLOR_RED, 20 + i * 40, 35, 60 + i * 40, 35, 40 + i * 40, 55);
-        }
-    }
-}
 
 Game::Game()
     : _background(nullptr), _bg_scale(1.0), _bg_offset_x(0.0), _bg_offset_y(0.0),
@@ -24,7 +12,7 @@ Game::Game()
 {
     srand(static_cast<unsigned int>(time(nullptr)));
 
-    open_window("Survival War: Pixel", WINDOW_WIDTH, WINDOW_HEIGHT);
+    open_window("Survival War: Pixel", Screen::WIDTH, Screen::HEIGHT);
 
     load_audio();
     load_background();
@@ -62,15 +50,15 @@ void Game::load_background()
     double img_height = bitmap_height(_background);
 
     // Scale to cover the whole window, then center the overflow
-    double scale_x = WINDOW_WIDTH / img_width;
-    double scale_y = WINDOW_HEIGHT / img_height;
+    double scale_x = Screen::WIDTH / img_width;
+    double scale_y = Screen::HEIGHT / img_height;
     _bg_scale = (scale_x > scale_y) ? scale_x : scale_y;
 
     double scaled_w = img_width * _bg_scale;
     double scaled_h = img_height * _bg_scale;
 
-    _bg_offset_x = (WINDOW_WIDTH - scaled_w) / 2.0;
-    _bg_offset_y = (WINDOW_HEIGHT - scaled_h) / 2.0;
+    _bg_offset_x = (Screen::WIDTH - scaled_w) / 2.0;
+    _bg_offset_y = (Screen::HEIGHT - scaled_h) / 2.0;
 }
 
 void Game::handle_melee_attack()
@@ -171,11 +159,7 @@ void Game::resolve_combat()
     // Enemy attack animations that landed a hit this frame
     for (auto &enemy : _enemies)
     {
-        if (!enemy->is_active() || !enemy->is_attacking())
-            continue;
-
-        if (enemy->consume_damage_flag() &&
-            enemy->distance_to(_player.get_x(), _player.get_y()) <= 50)
+        if (enemy->is_active() && enemy->consume_damage_flag())
         {
             _player.lose_heart();
             write_line("Enemy attack hit! Player health: " + std::to_string(_player.get_hearts()));
@@ -214,7 +198,7 @@ void Game::render()
         bullet.draw();
 
     // UI drawn last so it stays on top
-    draw_hearts(_player.get_hearts());
+    _player.draw_hud();
     draw_text("SPACE: sword  |  Right-click: shoot", COLOR_WHITE, "Arial", 14, 10, 570);
 }
 
@@ -230,7 +214,7 @@ void Game::show_game_over()
         _player.draw();
 
         color fade = rgba_color(0, 0, 0, alpha);
-        fill_rectangle(fade, 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+        fill_rectangle(fade, 0, 0, Screen::WIDTH, Screen::HEIGHT);
 
         refresh_screen(60);
     }
