@@ -3,6 +3,7 @@
 
 #include "Character.hpp"
 #include "SpriteAnimator.hpp"
+#include "Health.hpp"
 
 class Player : public Character
 {
@@ -14,12 +15,13 @@ public:
     void handle_input();  // movement + melee attack input
     void update_health(); // death-state bookkeeping
     void draw() const override;
+    void draw_hud() const; // heart icons showing remaining lives
 
-    bool is_alive() const override { return _hearts > 0; }
-    int get_hearts() const { return _hearts; }
+    bool is_alive() const override { return !_hearts.is_depleted(); }
+    int get_hearts() const { return _hearts.current(); }
     void lose_heart();
     void reset_hearts();
-    bool is_dead() const { return _hearts <= 0; }
+    bool is_dead() const { return _hearts.is_depleted(); }
 
     bool is_attacking() const { return _attacking; }
     bool is_dying_animation_done() const;
@@ -27,7 +29,7 @@ public:
     rectangle get_melee_range() const;
 
 private:
-    int _hearts;
+    Health _hearts;
     bool _attacking;
     bool _dying;
 

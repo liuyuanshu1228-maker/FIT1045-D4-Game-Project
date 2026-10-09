@@ -2,12 +2,6 @@
 #include "splashkit.h"
 #include <string>
 
-namespace
-{
-    constexpr int SCREEN_WIDTH = 800;
-    constexpr int SCREEN_HEIGHT = 600;
-}
-
 Player::Player()
     : Character(0, 0, 40, 40, 2.5, 25), _hearts(3), _attacking(false), _dying(false)
 {
@@ -50,14 +44,7 @@ void Player::handle_input()
         was_moving = true;
     }
 
-    if (_x < 0)
-        _x = 0;
-    if (_x > SCREEN_WIDTH - _width)
-        _x = SCREEN_WIDTH - _width;
-    if (_y < 0)
-        _y = 0;
-    if (_y > SCREEN_HEIGHT - _height)
-        _y = SCREEN_HEIGHT - _height;
+    clamp_to_screen();
 
     // Start a sword swing on space key press
     if (key_typed(SPACE_KEY) && !_attacking)
@@ -86,7 +73,7 @@ void Player::handle_input()
 
 void Player::update_health()
 {
-    if (_hearts <= 0 && !_dying)
+    if (_hearts.is_depleted() && !_dying)
     {
         _dying = true;
         _death_anim.reset();
@@ -125,16 +112,26 @@ void Player::draw() const
 
 void Player::lose_heart()
 {
-    if (_hearts > 0)
+    if (_hearts.current() > 0)
     {
-        _hearts--;
-        write_line("Player lost a heart! Hearts remaining: " + std::to_string(_hearts));
+        _hearts.damage(1);
+        write_line("Player lost a heart! Hearts remaining: " + std::to_string(_hearts.current()));
     }
 }
 
 void Player::reset_hearts()
 {
-    _hearts = 3;
+    _hearts.reset();
+}
+
+void Player::draw_hud() const
+{
+    for (int i = 0; i < _hearts.current(); i++)
+    {
+        fill_circle(COLOR_RED, 30 + i * 40, 30, 15);
+        fill_circle(COLOR_RED, 50 + i * 40, 30, 15);
+        fill_triangle(COLOR_RED, 20 + i * 40, 35, 60 + i * 40, 35, 40 + i * 40, 55);
+    }
 }
 
 bool Player::is_dying_animation_done() const
