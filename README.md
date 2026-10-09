@@ -1,44 +1,75 @@
 # Survival War: Pixel
- 
-一款用 C++ 与 [SplashKit](https://splashkit.io) 开发的俯视角 2D 生存动作游戏：操控角色在地图上躲避并消灭不断逼近的敌人，近战剑击与远程射击结合，坚持尽可能长的时间。
- 
-## 玩法与操作
- 
-| 操作 | 功能 |
+
+A top-down 2D survival action game built in C++ with [SplashKit](https://splashkit.io). Dodge and fight off waves of enemies with a melee sword swing and a ranged bullet attack, and try to survive as long as possible.
+
+## Controls
+
+| Input | Action |
 | --- | --- |
-| `W` `A` `S` `D` / 方向键 | 移动角色 |
-| 空格 (Space) | 近战剑击（命中范围内敌人造成伤害） |
-| 鼠标右键 | 朝鼠标位置发射子弹，远程攻击 |
-| `ESC`（游戏结束画面） | 退出游戏 |
- 
-玩家初始拥有 3 点生命，被敌人近身攻击或主动撞上会扣血；生命耗尽后播放死亡动画、屏幕淡出并显示 GAME OVER。敌人在侦测范围内会追击并近战攻击玩家（含命中帧判定与攻击冷却），侦测范围外则随机游走或原地休息——每个敌人有各自独立的游走速度与"偷懒"概率，使群体行为不完全一致。
- 
-## 技术实现
- 
-- **手写泛型动态数组 `dynamic_array<T>`**：用 `malloc` + placement `new` 手动管理内存，支持 `add` / `remove` 与按需扩容（容量不足时翻倍），用来统一管理敌人与子弹对象的生命周期，而不是直接用标准库容器。
-- **实体类设计**：`player` / `enermy` / `bullet` 三个类各自封装位置、生命值、攻击状态，以及多组手动精灵帧动画（行走、攻击、死亡），按帧计时器切换当前播放帧。
-- **敌人 AI**：基于与玩家的距离判断——进入攻击范围后近战攻击（含命中帧判定与冷却），侦测范围外则随机选取游走目标点或原地休息，休息概率、游走速度等参数按个体随机化。
-- **碰撞检测**：子弹与敌人用整张精灵的包围盒判定；玩家与敌人改用缩放到精灵尺寸 25%、居中对齐的小碰撞框，减少贴图透明留白造成的误判。
-- **背景自适应**：背景贴图按窗口宽高比自动等比缩放铺满（cover 模式），并计算偏移量居中显示。
-- **子弹系统**：按鼠标点击位置与发射点的方向向量归一化后直线飞行，出界自动失效；每帧清理失效子弹，避免数组无限增长。
-## 运行方式
- 
-**直接运行**：仓库内已附带编译好的 Windows 可执行文件，双击 `1045Dproject/FinalD4.exe` 即可。
- 
-**自行编译**：
-1. 安装 [SplashKit SDK](https://splashkit.io/installation/)。
-2. 在 `1045Dproject` 目录下执行：
+| `W` `A` `S` `D` / Arrow keys | Move the player |
+| `Space` | Melee sword swing (damages any enemy inside the hit box) |
+| Right mouse button | Fire a bullet toward the cursor |
+| `Esc` (on the Game Over screen) | Quit |
+
+The player starts with 3 hearts. Touching an enemy, or getting hit by one of their attacks, costs a heart. At 0 hearts the death animation plays, the screen fades out, and "GAME OVER" is shown. Enemies chase and melee-attack the player once within detection range (with a hit-frame check and an attack cooldown); outside that range they wander or rest autonomously, with each enemy's wander speed and "laziness" randomized individually so the group never behaves identically.
+
+## Architecture
+
+The game is built as a small object-oriented hierarchy rather than one procedural file. Design goals were encapsulation (every class owns and protects its own state), inheritance (shared behavior lives once, in a base class), and polymorphism (the game loop talks to `Player`/`Enemy` through a common interface, not type-specific code).
+
 ```
-   skm g++ FinalD4.cpp -o FinalD4
+Entity (abstract)                SpriteAnimator
+ ├─ position, size, active       encapsulates a sprite sheet's
+ ├─ virtual draw() = 0           frame-stepping state (loop /
+ └─ get_bounds()                 play-once-and-hold / play-once-
+      │                          and-reset), used by composition
+      ├─ Character (abstract)    inside Player and Enemy instead
+      │   ├─ speed, attack       of duplicating timer bookkeeping
+      │   └─ virtual is_alive() = 0
+      │        ├─ Player
+      │        └─ Enemy
+      └─ Bullet
 ```
-3. 运行生成的可执行文件。
-## 项目结构
- 
+
+- **`Entity`** — the common base for anything that occupies space and can be drawn. Pure virtual `draw()` gives every subclass its own rendering while the game loop stays type-agnostic.
+- **`Character`** — adds movement speed and attack strength on top of `Entity`. `is_alive()` is pure virtual because "alive" means something different for each subclass: `Player` tracks hearts, `Enemy` tracks a health pool.
+- **`Player`** / **`Enemy`** — concrete `Character` subclasses. `Enemy` also owns its AI (chase, melee, wander, rest) and a static factory, `Enemy::spawn_wave(...)`, that places a wave of enemies at valid random positions away from the player and each other.
+- **`Bullet`** — a lightweight `Entity` subclass: fires toward a target, moves, and deactivates off-screen or on impact.
+- **`SpriteAnimator`** — a composed helper (not inherited) that owns a sprite sheet and its frame-timer state. `Player` and `Enemy` each hold several instances of it (walk / attack / death), which replaced five separate copies of hand-rolled "timer++; if timer >= duration ..." frame-stepping code with one tested implementation.
+- **`Collision`** — a namespace of pure, stateless hit-test functions (`bullet_hits_enemy`, `player_hits_enemy`) that only read entity state through public accessors.
+- **`Game`** — owns all game state (`Player`, a list of enemies, a list of bullets, background/audio) and drives the loop: input → AI/physics update → combat resolution → render. `main()` is now three lines.
+
+Enemies and bullets are stored as `std::vector<std::unique_ptr<Enemy>>` and `std::vector<Bullet>` — smart pointers and RAII manage their lifetime, so there's no manual memory management or custom container code anywhere in the project.
+
+### Other implementation notes
+
+- **Collision detection**: bullets vs. enemies use each sprite's full bounding box; player vs. enemy uses a smaller box scaled to 25% of the sprite and centered, which avoids false hits from transparent padding around the artwork.
+- **Background scaling**: the background bitmap is scaled to cover the window at its original aspect ratio, then centered with a computed offset.
+- **Bullet system**: direction is the normalized vector from the firing point to the cursor at the moment of firing; bullets deactivate off-screen or on hit, and inactive bullets are swept from the vector every frame.
+
+## Running the game
+
+1. Install the [SplashKit SDK](https://splashkit.io/installation/).
+2. From the `1045Dproject` directory, compile all source files together:
+   ```
+   skm g++ *.cpp -o game
+   ```
+3. Run the resulting executable.
+
+## Project structure
+
 ```
 1045Dproject/
-├── FinalD4.cpp              # 全部游戏逻辑（动态数组、实体类、主循环）
-├── FinalD4.exe               # 已编译的 Windows 可执行文件
+├── Entity.hpp / Entity.cpp              # Abstract base: position, size, draw()
+├── Character.hpp / Character.cpp        # Entity subclass: speed, attack, is_alive()
+├── Player.hpp / Player.cpp              # Character subclass: input, hearts, animations
+├── Enemy.hpp / Enemy.cpp                # Character subclass: AI, wave spawning
+├── Bullet.hpp / Bullet.cpp              # Entity subclass: projectile movement
+├── SpriteAnimator.hpp / SpriteAnimator.cpp  # Reusable sprite-sheet animation
+├── Collision.hpp / Collision.cpp        # Stateless hit-testing helpers
+├── Game.hpp / Game.cpp                  # Owns game state and runs the main loop
+├── main.cpp                             # Entry point
 └── Resources/
-    ├── sprites/               # 角色、敌人精灵表与背景贴图
-    └── sounds/                # 背景音乐与音效
+    ├── sprites/                          # Character, enemy and background sprite sheets
+    └── sounds/                           # Background music and sound effects
 ```
